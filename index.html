@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clip</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  #player{width:100%;height:100%;border:0}
+  #msg{color:#bbb;font:14px/1.5 system-ui,sans-serif;padding:16px}
+</style>
+</head>
+<body>
+<div id="player"></div>
+<div id="msg" hidden>Add ?v=VIDEO_ID&amp;s=START&amp;e=END to the URL.</div>
+<script>
+/* Segment player for YouTube.
+   URL format:  index.html?v=VIDEO_ID&s=95&e=105
+   Optional:    &loop=0   play once, then reset to start (default loops)
+                &mute=1   start muted
+                &auto=1   autoplay (browsers require mute=1 with this)
+*/
+var q     = new URLSearchParams(location.search);
+var VID   = q.get('v');
+var START = parseFloat(q.get('s') || '0');
+var END   = parseFloat(q.get('e') || String(START + 10));
+var LOOP  = q.get('loop') !== '0';
+var MUTE  = q.get('mute') === '1';
+var AUTO  = q.get('auto') === '1';
+var player, ticker;
+
+if (!VID) {
+  document.getElementById('msg').hidden = false;
+} else {
+  var tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+
+window.onYouTubeIframeAPIReady = function () {
+  player = new YT.Player('player', {
+    videoId: VID,
+    playerVars: {
+      start: Math.floor(START),
+      controls: 1, rel: 0, modestbranding: 1, playsinline: 1, fs: 1,
+      autoplay: AUTO ? 1 : 0
+    },
+    events: { onReady: onReady, onStateChange: onState }
+  });
+};
+
+function onReady() {
+  if (MUTE || AUTO) player.mute();
+  player.seekTo(START, true);
+  if (!AUTO) player.pauseVideo();
+}
+
+function onState(ev) {
+  clearInterval(ticker);
+  if (ev.data === YT.PlayerState.PLAYING) {
+    var t = player.getCurrentTime();
+    // Snap back if playback resumed outside the segment (the replay-from-zero case)
+    if (t < START - 0.5 || t >= END) player.seekTo(START, true);
+    ticker = setInterval(watch, 100);
+  }
+  if (ev.data === YT.PlayerState.ENDED) {
+    player.seekTo(START, true);
+    if (LOOP) { player.playVideo(); } else { player.pauseVideo(); }
+  }
+}
+
+function watch() {
+  if (!player || !player.getCurrentTime) return;
+  if (player.getCurrentTime() >= END) {
+    if (LOOP) {
+      player.seekTo(START, true);
+    } else {
+      player.pauseVideo();
+      player.seekTo(START, true);
+      clearInterval(ticker);
+    }
+  }
+}
+</script>
+</body>
+</html>
