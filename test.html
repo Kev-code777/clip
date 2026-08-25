@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Embed A/B test</title>
+<style>
+  body{margin:0;background:#111;color:#ddd;font:14px/1.5 system-ui,sans-serif}
+  h2{font-size:14px;margin:14px 12px 6px;font-weight:600}
+  .note{margin:12px;color:#999;font-size:13px}
+  iframe{width:calc(100% - 24px);height:42vh;margin:0 12px;border:0;background:#000}
+</style>
+</head>
+<body>
+<p class="note">No JavaScript on this page. Two plain iframes, same video, both starting at 30 seconds.
+Press play on each and note which one shows a picture.</p>
+
+<h2>A. www.youtube.com  (sends your login cookies)</h2>
+<iframe src="https://www.youtube.com/embed/yHZy51LotZ8?start=30"
+        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"></iframe>
+
+<h2>B. www.youtube-nocookie.com  (no login cookies)</h2>
+<iframe src="https://www.youtube-nocookie.com/embed/yHZy51LotZ8?start=30"
+        allow="autoplay; encrypted-media; fullscreen; picture-in-picture"></iframe>
+</body>
+</html>
