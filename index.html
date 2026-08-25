@@ -39,6 +39,7 @@ if (!VID) {
 
 window.onYouTubeIframeAPIReady = function () {
   player = new YT.Player('player', {
+      host: 'https://www.youtube-nocookie.com',
     videoId: VID,
     playerVars: {
       start: Math.floor(START),
