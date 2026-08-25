@@ -7,22 +7,23 @@
 <style>
   html,body{margin:0;height:100%;background:#000;overflow:hidden}
   #ytframe{width:100%;height:100%;border:0;display:block}
-  #diag{position:fixed;left:0;right:0;bottom:0;background:#141414;color:#ddd;
-        font:12px/1.5 system-ui,sans-serif;padding:8px 12px;display:none}
-  #diag a{color:#7ab8ff}
 </style>
 </head>
 <body>
-<div id="diag"></div>
 <script>
-/* Segment player, v2.
-   URL:       index.html?v=VIDEO_ID&s=95&e=105
-   Options:   &loop=0      play once, reset to start (default loops)
-              &mute=0      start with sound (default muted)
-              &auto=1      autoplay
-              &cookies=1   use www.youtube.com instead of youtube-nocookie.com
-   The iframe is built by hand so it can carry the credentialless attribute,
-   which makes Chrome load it with no cookies at all, signed in or not.
+/* Segment player, v4.
+   URL:      index.html?v=VIDEO_ID&s=95&e=105
+   Options:  &loop=0     play once, reset to start (default loops)
+             &mute=0     start with sound (default muted)
+             &auto=1     autoplay
+             &cookies=1  use www.youtube.com instead of youtube-nocookie.com
+             &api=0      plain iframe, no JavaScript control at all (diagnostic)
+             &hold=1     restore the old seek-and-pause on load (diagnostic)
+
+   Key difference from v1 to v3: nothing is sent to the player before the user
+   presses play. The start position comes from the URL parameter, so the frame
+   keeps its normal thumbnail and play button. Segment limits are enforced only
+   once playback is actually running.
 */
 var q     = new URLSearchParams(location.search);
 var VID   = q.get('v');
@@ -31,43 +32,32 @@ var END   = parseFloat(q.get('e') || String(START + 10));
 var LOOP  = q.get('loop') !== '0';
 var MUTE  = q.get('mute') !== '0';
 var AUTO  = q.get('auto') === '1';
+var API   = q.get('api') !== '0';
+var HOLD  = q.get('hold') === '1';
 var HOST  = q.get('cookies') === '1'
           ? 'https://www.youtube.com'
           : 'https://www.youtube-nocookie.com';
 var player, ticker;
-var diag = document.getElementById('diag');
 
-function fail(text) {
-  diag.style.display = 'block';
-  diag.innerHTML = text + ' &nbsp; <a target="_blank" href="https://www.youtube.com/watch?v=' +
-                   VID + '&t=' + Math.floor(START) + 's">Open on YouTube</a>';
-}
-
-if (!VID) {
-  fail('No video id. Add ?v=VIDEO_ID&s=START&e=END to the URL.');
-} else {
+if (VID) {
   var src = HOST + '/embed/' + VID +
-    '?enablejsapi=1' +
-    '&start=' + Math.floor(START) +
+    '?start=' + Math.floor(START) +
     '&rel=0&modestbranding=1&playsinline=1&fs=1' +
     (MUTE || AUTO ? '&mute=1' : '') +
     (AUTO ? '&autoplay=1' : '') +
-    '&origin=' + encodeURIComponent(location.origin);
+    (API ? '&enablejsapi=1&origin=' + encodeURIComponent(location.origin) : '');
 
   var f = document.createElement('iframe');
   f.id = 'ytframe';
-  f.setAttribute('credentialless', '');           // Chrome: load frame with no cookies
   f.setAttribute('allow', 'autoplay; encrypted-media; fullscreen; picture-in-picture');
-  f.setAttribute('allowfullscreen', '');
-  f.setAttribute('referrerpolicy', 'origin');
   f.src = src;
   document.body.appendChild(f);
 
-  var tag = document.createElement('script');
-  tag.src = 'https://www.youtube.com/iframe_api';
-  document.head.appendChild(tag);
-
-  setTimeout(check, 6000);
+  if (API) {
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  }
 }
 
 window.onYouTubeIframeAPIReady = function () {
@@ -77,17 +67,16 @@ window.onYouTubeIframeAPIReady = function () {
 };
 
 function onReady() {
-  if (MUTE) player.mute();
-  player.seekTo(START, true);
-  if (!AUTO) player.pauseVideo();
+  // Deliberately does nothing by default. Touching the player here is what
+  // produced the black frame with no controls.
+  if (HOLD) { player.seekTo(START, true); player.pauseVideo(); }
 }
 
 function onState(ev) {
   clearInterval(ticker);
   if (ev.data === YT.PlayerState.PLAYING) {
-    if (MUTE) player.mute();
     var t = player.getCurrentTime();
-    if (t < START - 0.5 || t >= END) player.seekTo(START, true);
+    if (t < START - 1 || t >= END) player.seekTo(START, true);
     ticker = setInterval(watch, 100);
   }
   if (ev.data === YT.PlayerState.ENDED) {
@@ -103,19 +92,8 @@ function watch() {
       player.seekTo(START, true);
     } else {
       player.pauseVideo();
-      player.seekTo(START, true);
       clearInterval(ticker);
     }
-  }
-}
-
-function check() {
-  if (!window.YT || !window.YT.Player) {
-    fail('YouTube player script did not load. Extension or content setting is blocking it.');
-    return;
-  }
-  if (!player || typeof player.getPlayerState !== 'function') {
-    fail('Player did not connect. The frame loaded but the API never attached.');
   }
 }
 </script>
